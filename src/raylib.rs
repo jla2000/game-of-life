@@ -9,10 +9,16 @@ pub struct Color {
 }
 
 impl Color {
-    pub const WHITE: Self = Self {
+    pub const BLACK: Self = Self {
         r: 0,
         g: 0,
         b: 0,
+        a: 255,
+    };
+    pub const WHITE: Self = Self {
+        r: 255,
+        g: 255,
+        b: 255,
         a: 255,
     };
 }
@@ -25,5 +31,7 @@ unsafe extern "C" {
     pub safe fn EndDrawing();
     pub safe fn ClearBackground(color: Color);
     pub safe fn DrawFPS(pos_x: c_int, pos_y: c_int);
+    pub safe fn DrawPixel(pos_x: c_int, pos_y: c_int, color: Color);
     pub safe fn SetTargetFPS(fps: c_int);
+    pub safe fn GetRandomValue(min: c_int, max: c_int) -> c_int;
 }
