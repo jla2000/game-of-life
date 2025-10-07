@@ -7,24 +7,16 @@
       pkgs = inputs.nixpkgs.legacyPackages.${system};
     in
     {
-      packages.${system}.default = pkgs.stdenv.mkDerivation {
+      packages.${system}.default = pkgs.rustPlatform.buildRustPackage {
         name = "game-of-life";
         src = pkgs.lib.cleanSource ./.;
         buildInputs = [ pkgs.raylib ];
-        nativeBuildInputs = [ pkgs.zig ];
-
-        # zig.hook broken:
-        # https://github.com/NixOS/nixpkgs/issues/247719
-        buildPhase = "zig build --global-cache-dir .";
-        installPhase = ''
-          mkdir -p $out/bin
-          mv ./zig-out/bin/* $out/bin/
-        '';
+        cargoLock.lockFile = ./Cargo.lock;
       };
 
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = [ pkgs.raylib ];
-        nativeBuildInputs = [ pkgs.zig ];
+        nativeBuildInputs = [ pkgs.cargo pkgs.rustc ];
       };
     };
 }
