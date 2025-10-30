@@ -1,8 +1,8 @@
 const std = @import("std");
-const rl = @cImport({
-    @cDefine("GRAPHICS_API_OPENGL_43", "");
-    @cInclude("raylib.h");
-    @cInclude("rlgl.h");
+
+const c = @cImport({
+    @cInclude("epoxy/gl.h");
+    @cInclude("GLFW/glfw3.h");
 });
 
 const WIN_WIDTH = 800;
@@ -12,84 +12,76 @@ const GRID_SCALE = 10;
 const GRID_WIDTH = WIN_WIDTH / GRID_SCALE;
 const GRID_HEIGHT = WIN_HEIGHT / GRID_SCALE;
 
-const shader =
-    \\ # version 330 core
-    \\ layout(binding = 0, r8u) uniform readonly image2D input;
-    \\ layout(binding = 1, r8u) uniform writeonly image2D output;
-    \\ void main() {}
-;
+const compute_shader = @embedFile("compute.glsl");
+
+fn glfwErrorCallback(code: c_int, message: [*c]const u8) callconv(.c) void {
+    std.log.err("{d}: {s}\n", .{ code, message });
+}
+
+fn compileShader(kind: c.GLenum, code: [:0]const u8) !c.GLuint {
+    const shader_id = c.glCreateShader(kind);
+
+    c.glShaderSource(shader_id, 1, &code.ptr, null);
+    c.glCompileShader(shader_id);
+
+    var compile_status: c.GLint = 0;
+    var info_log_len: c.GLint = 0;
+
+    c.glGetShaderiv(shader_id, c.GL_COMPILE_STATUS, &compile_status);
+
+    if (compile_status == c.GL_FALSE) {
+        c.glGetShaderiv(shader_id, c.GL_INFO_LOG_LENGTH, &info_log_len);
+
+        const info_log = try std.heap.c_allocator.alloc(c.GLchar, @intCast(info_log_len));
+        defer std.heap.c_allocator.free(info_log);
+
+        c.glGetShaderInfoLog(shader_id, info_log_len, null, info_log.ptr);
+
+        std.debug.print("Error during shader compilation:\n{s}\n", .{info_log[0..@intCast(info_log_len)]});
+
+        return error.CompilationFailed;
+    } else {
+        return shader_id;
+    }
+}
 
 pub fn main() !void {
-    var particles = std.mem.zeroes([GRID_WIDTH * GRID_HEIGHT]bool);
-    var next_particles = std.mem.zeroes([GRID_WIDTH * GRID_HEIGHT]bool);
+    _ = c.glfwSetErrorCallback(glfwErrorCallback);
 
-    for (0..GRID_HEIGHT * 10) |_| {
-        const x: usize = @intCast(rl.GetRandomValue(0, GRID_WIDTH - 1));
-        const y: usize = @intCast(rl.GetRandomValue(0, GRID_HEIGHT - 1));
-        next_particles[y * GRID_WIDTH + x] = true;
+    if (c.glfwInit() == c.GLFW_FALSE) {
+        return error.GlfwInit;
     }
+    defer c.glfwTerminate();
 
-    rl.InitWindow(WIN_WIDTH, WIN_HEIGHT, "Particles");
-    rl.SetWindowState(rl.FLAG_VSYNC_HINT);
+    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 4);
+    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 5);
+    c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
 
-    _ = rl.rlCompileShader(shader, rl.RL_COMPUTE_SHADER);
+    const window = c.glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Particles", null, null) orelse {
+        return error.GlfwWindow;
+    };
+    defer c.glfwDestroyWindow(window);
 
-    while (!rl.WindowShouldClose()) {
-        @memcpy(&particles, &next_particles);
+    c.glfwMakeContextCurrent(window);
+    std.debug.assert(c.epoxy_gl_version() == 45);
 
-        rl.BeginDrawing();
-        rl.ClearBackground(rl.BLACK);
+    var vao: c.GLuint = 0;
+    c.glGenVertexArrays(1, &vao);
+    c.glBindVertexArray(vao);
 
-        for (0..particles.len) |idx| {
-            const x = idx % GRID_WIDTH;
-            const y = (idx - x) / GRID_WIDTH;
+    const comp_shader_id = try compileShader(c.GL_COMPUTE_SHADER, compute_shader);
+    _ = comp_shader_id;
 
-            if (particles[idx]) {
-                const radius = GRID_SCALE / 2;
-                const half_radius = radius / 2;
-                rl.DrawCircle(@intCast(x * GRID_SCALE + half_radius), @intCast(WIN_HEIGHT - y * GRID_SCALE - half_radius), radius, rl.WHITE);
+    c.glClearColor(1.0, 1.0, 0.5, 1.0);
 
-                if (y > 0) {
-                    const down_idx = (y - 1) * GRID_WIDTH + x;
-                    if (!next_particles[down_idx]) {
-                        next_particles[idx] = false;
-                        next_particles[down_idx] = true;
-                        continue;
-                    }
+    while (c.glfwWindowShouldClose(window) == 0) {
+        c.glClear(c.GL_COLOR_BUFFER_BIT);
 
-                    if (x > 0) {
-                        const down_left_idx = (y - 1) * GRID_WIDTH + (x - 1);
-                        if (!next_particles[down_left_idx]) {
-                            next_particles[idx] = false;
-                            next_particles[down_left_idx] = true;
-                            continue;
-                        }
-                    }
+        c.glfwPollEvents();
+        c.glfwSwapBuffers(window);
 
-                    if (x < GRID_WIDTH - 1) {
-                        const down_right_idx = (y - 1) * GRID_WIDTH + (x + 1);
-                        if (!next_particles[down_right_idx]) {
-                            next_particles[idx] = false;
-                            next_particles[down_right_idx] = true;
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
-
-        rl.DrawFPS(0, 0);
-        rl.EndDrawing();
-
-        const mouse_pos = rl.GetMousePosition();
-        const x: usize = @intFromFloat(mouse_pos.x);
-        const y = WIN_HEIGHT - @as(usize, @intFromFloat(mouse_pos.y));
-
-        const idx = (y / GRID_SCALE) * GRID_WIDTH + (x / GRID_SCALE);
-        if (idx < next_particles.len) {
-            next_particles[idx] = true;
+        if (c.glfwGetKey(window, c.GLFW_KEY_ESCAPE) == c.GLFW_PRESS) {
+            break;
         }
     }
-
-    rl.CloseWindow();
 }

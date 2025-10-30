@@ -9,7 +9,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.linkSystemLibrary("raylib");
+    exe.linkSystemLibrary("glfw");
+    exe.linkSystemLibrary("GL");
+    exe.linkSystemLibrary("epoxy");
     exe.linkLibC();
 
     b.installArtifact(exe);
