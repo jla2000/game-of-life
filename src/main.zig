@@ -12,8 +12,6 @@ const GRID_SCALE = 10;
 const GRID_WIDTH = WIN_WIDTH / GRID_SCALE;
 const GRID_HEIGHT = WIN_HEIGHT / GRID_SCALE;
 
-const compute_shader = @embedFile("compute.glsl");
-
 fn glfwErrorCallback(code: c_int, message: [*c]const u8) callconv(.c) void {
     std.log.err("{d}: {s}\n", .{ code, message });
 }
@@ -25,18 +23,13 @@ fn compileShader(kind: c.GLenum, code: [:0]const u8) !c.GLuint {
     c.glCompileShader(shader_id);
 
     var compile_status: c.GLint = 0;
-    var info_log_len: c.GLint = 0;
-
     c.glGetShaderiv(shader_id, c.GL_COMPILE_STATUS, &compile_status);
 
     if (compile_status == c.GL_FALSE) {
-        c.glGetShaderiv(shader_id, c.GL_INFO_LOG_LENGTH, &info_log_len);
+        var info_log = std.mem.zeroes([1024]u8);
+        var info_log_len: c.GLint = 0;
 
-        const info_log = try std.heap.c_allocator.alloc(c.GLchar, @intCast(info_log_len));
-        defer std.heap.c_allocator.free(info_log);
-
-        c.glGetShaderInfoLog(shader_id, info_log_len, null, info_log.ptr);
-
+        c.glGetShaderInfoLog(shader_id, info_log.len, &info_log_len, &info_log);
         std.debug.print("Error during shader compilation:\n{s}\n", .{info_log[0..@intCast(info_log_len)]});
 
         return error.CompilationFailed;
@@ -69,8 +62,11 @@ pub fn main() !void {
     c.glGenVertexArrays(1, &vao);
     c.glBindVertexArray(vao);
 
-    const comp_shader_id = try compileShader(c.GL_COMPUTE_SHADER, compute_shader);
+    const comp_shader_id = try compileShader(c.GL_COMPUTE_SHADER, @embedFile("compute.glsl"));
+    const vert_shader_id = try compileShader(c.GL_VERTEX_SHADER, @embedFile("vertex.glsl"));
+
     _ = comp_shader_id;
+    _ = vert_shader_id;
 
     c.glClearColor(1.0, 1.0, 0.5, 1.0);
 
