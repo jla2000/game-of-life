@@ -5,10 +5,10 @@ const c = @cImport({
     @cInclude("GLFW/glfw3.h");
 });
 
-const WIN_WIDTH = 800;
-const WIN_HEIGHT = 600;
+const WIN_WIDTH = 1280;
+const WIN_HEIGHT = 720;
 
-const GRID_SCALE = 3;
+const GRID_SCALE = 4;
 const GRID_WIDTH = WIN_WIDTH / GRID_SCALE;
 const GRID_HEIGHT = WIN_HEIGHT / GRID_SCALE;
 
@@ -74,7 +74,7 @@ pub fn main() !void {
     c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 5);
     c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
 
-    const window = c.glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Particles", null, null) orelse {
+    const window = c.glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "Game of Life", null, null) orelse {
         return error.GlfwWindow;
     };
     defer c.glfwDestroyWindow(window);
@@ -130,18 +130,7 @@ pub fn main() !void {
     var input_unit: c.GLint = 0;
     var output_unit: c.GLint = 1;
 
-    var last_frame = try std.time.Instant.now();
-    var num_frames: usize = 0;
-
     while (c.glfwWindowShouldClose(window) == 0) {
-        const current_frame = try std.time.Instant.now();
-        if (current_frame.since(last_frame) > 500_000_000) {
-            std.debug.print("FPS: {d}\n", .{num_frames * 2});
-            num_frames = 0;
-            last_frame = current_frame;
-        }
-        num_frames += 1;
-
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
         c.glUseProgram(render_program);
@@ -152,7 +141,6 @@ pub fn main() !void {
         c.glUniform1i(input_data, input_unit);
         c.glUniform1i(output_data, output_unit);
         c.glDispatchCompute(WIN_WIDTH / 10, WIN_HEIGHT / 10, 1);
-        c.glMemoryBarrier(c.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
         std.mem.swap(@TypeOf(input_unit), &input_unit, &output_unit);
 
