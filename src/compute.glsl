@@ -12,28 +12,15 @@ float get_cell(uint x, uint y) {
 void main() {
   ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
 
-  // uint neighbours = 0;
-  // for (uint y_off = -1; y_off <= 1; y_off += 2) {
-  //   for (uint x_off = -1; x_off <= 1; x_off += 2) {
-  //     neighbours += is_alive(pos.x + x_off, pos.y + y_off);
-  //   }
-  // }
-  //
-  // uint alive = is_alive(pos.x, pos.y);
-  // if (neighbours == 3 || (alive == 1) && neighbours == 2) {
-  //   alive = 1;
-  // } else {
-  //   alive = 0;
-  // }
-  //
-  // imageStore(output_data, pos, uvec4(alive, 0, 0, 0));
-
   float neighbours = 0;
-  for (int y_off = -1; y_off <= 1; y_off += 2) {
-    for (int x_off = -1; x_off <= 1; x_off += 2) {
-      neighbours += get_cell(pos.x + x_off, pos.y + y_off);
-    }
-  }
+  neighbours += get_cell(pos.x - 1, pos.y - 1);
+  neighbours += get_cell(pos.x - 1, pos.y);
+  neighbours += get_cell(pos.x - 1, pos.y + 1);
+  neighbours += get_cell(pos.x, pos.y - 1);
+  neighbours += get_cell(pos.x, pos.y + 1);
+  neighbours += get_cell(pos.x + 1, pos.y - 1);
+  neighbours += get_cell(pos.x + 1, pos.y);
+  neighbours += get_cell(pos.x + 1, pos.y + 1);
 
   float self = get_cell(pos.x, pos.y);
 

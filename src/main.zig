@@ -8,7 +8,7 @@ const c = @cImport({
 const WIN_WIDTH = 800;
 const WIN_HEIGHT = 600;
 
-const GRID_SCALE = 10;
+const GRID_SCALE = 3;
 const GRID_WIDTH = WIN_WIDTH / GRID_SCALE;
 const GRID_HEIGHT = WIN_HEIGHT / GRID_SCALE;
 
@@ -82,8 +82,6 @@ pub fn main() !void {
     c.glfwMakeContextCurrent(window);
     std.debug.assert(c.epoxy_gl_version() == 45);
 
-    // c.glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
-
     var vao: c.GLuint = 0;
     c.glGenVertexArrays(1, &vao);
     c.glBindVertexArray(vao);
@@ -95,7 +93,7 @@ pub fn main() !void {
     const frag_shader = try compileShader(c.GL_FRAGMENT_SHADER, @embedFile("fragment.glsl"));
     const render_program = try linkProgram(&[_]c.GLuint{ vert_shader, frag_shader });
 
-    var random_data = std.mem.zeroes([WIN_WIDTH * WIN_HEIGHT]u8);
+    var random_data = std.mem.zeroes([GRID_WIDTH * GRID_HEIGHT]u8);
     for (&random_data) |*value| {
         if (std.crypto.random.int(u8) % 2 == 0) {
             value.* = 255;
@@ -106,11 +104,9 @@ pub fn main() !void {
     c.glGenTextures(1, &texture0);
     c.glActiveTexture(c.GL_TEXTURE0);
     c.glBindTexture(c.GL_TEXTURE_2D, texture0);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_EDGE);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_EDGE);
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_R8, WIN_WIDTH, WIN_HEIGHT, 0, c.GL_RED, c.GL_UNSIGNED_BYTE, &random_data);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_NEAREST);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_NEAREST);
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_R8, GRID_WIDTH, GRID_HEIGHT, 0, c.GL_RED, c.GL_UNSIGNED_BYTE, &random_data);
     c.glBindImageTexture(0, texture0, 0, c.GL_FALSE, 0, c.GL_READ_WRITE, c.GL_R8);
 
     var texture1: c.GLuint = 0;
@@ -118,11 +114,9 @@ pub fn main() !void {
     c.glActiveTexture(c.GL_TEXTURE1);
     c.glBindTexture(c.GL_TEXTURE_2D, texture1);
     c.glBindImageTexture(1, texture1, 0, c.GL_FALSE, 0, c.GL_READ_WRITE, c.GL_R8UI);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_EDGE);
-    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_EDGE);
-    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_R8, WIN_WIDTH, WIN_HEIGHT, 0, c.GL_RED, c.GL_UNSIGNED_BYTE, &random_data);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_NEAREST);
+    c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_NEAREST);
+    c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_R8, GRID_WIDTH, GRID_HEIGHT, 0, c.GL_RED, c.GL_UNSIGNED_BYTE, &random_data);
     c.glBindImageTexture(1, texture1, 0, c.GL_FALSE, 0, c.GL_READ_WRITE, c.GL_R8);
 
     const input_data = c.glGetUniformLocation(compute_program, "input_data");
@@ -136,18 +130,24 @@ pub fn main() !void {
     var input_unit: c.GLint = 0;
     var output_unit: c.GLint = 1;
 
-    // var i: usize = 0;
+    var last_frame = try std.time.Instant.now();
+    var num_frames: usize = 0;
 
     while (c.glfwWindowShouldClose(window) == 0) {
+        const current_frame = try std.time.Instant.now();
+        if (current_frame.since(last_frame) > 500_000_000) {
+            std.debug.print("FPS: {d}\n", .{num_frames * 2});
+            num_frames = 0;
+            last_frame = current_frame;
+        }
+        num_frames += 1;
+
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
         c.glUseProgram(render_program);
         c.glUniform1i(c.glGetUniformLocation(render_program, "render_texture"), input_unit);
         c.glDrawArrays(c.GL_TRIANGLE_STRIP, 0, 4);
 
-        // i += 1;
-        // if (i > 100) {
-        //     i = 0;
         c.glUseProgram(compute_program);
         c.glUniform1i(input_data, input_unit);
         c.glUniform1i(output_data, output_unit);
@@ -155,7 +155,6 @@ pub fn main() !void {
         c.glMemoryBarrier(c.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
         std.mem.swap(@TypeOf(input_unit), &input_unit, &output_unit);
-        // }
 
         c.glfwPollEvents();
         c.glfwSwapBuffers(window);
