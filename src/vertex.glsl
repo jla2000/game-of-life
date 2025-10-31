@@ -1,8 +1,8 @@
 # version 450 core
 
+out vec2 uv;
+
 void main() {
-  gl_Position.x = (gl_VertexID & 1) * 2 - 1;
-  gl_Position.y = ((gl_VertexID >> 1) & 1) * 2 - 1;
-  gl_Position.z = 0;
-  gl_Position.w = 1;
+  uv = vec2(gl_VertexID & 1, (gl_VertexID >> 1) & 1);
+  gl_Position = vec4(uv * 2 - 1, 0, 1);
 }
