@@ -36,10 +36,11 @@ void main() {
   }
 
   float self = get_cell(pos.x, pos.y);
-  if (neighbours == 3 || (self == 1) && neighbours == 2) {
-    self = 1;
-  } else {
+
+  if (neighbours < 2 || neighbours >= 4) {
     self = 0;
+  } else if (neighbours == 3) {
+    self = 1;
   }
 
   imageStore(output_data, pos, vec4(self, 0, 0, 1));

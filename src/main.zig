@@ -97,7 +97,7 @@ pub fn main() !void {
 
     var random_data = std.mem.zeroes([WIN_WIDTH * WIN_HEIGHT]u8);
     for (&random_data) |*value| {
-        if (std.crypto.random.int(u8) % 10 == 0) {
+        if (std.crypto.random.int(u8) % 2 == 0) {
             value.* = 255;
         }
     }
@@ -136,6 +136,8 @@ pub fn main() !void {
     var input_unit: c.GLint = 0;
     var output_unit: c.GLint = 1;
 
+    // var i: usize = 0;
+
     while (c.glfwWindowShouldClose(window) == 0) {
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
@@ -143,12 +145,17 @@ pub fn main() !void {
         c.glUniform1i(c.glGetUniformLocation(render_program, "render_texture"), input_unit);
         c.glDrawArrays(c.GL_TRIANGLE_STRIP, 0, 4);
 
+        // i += 1;
+        // if (i > 100) {
+        //     i = 0;
         c.glUseProgram(compute_program);
         c.glUniform1i(input_data, input_unit);
         c.glUniform1i(output_data, output_unit);
         c.glDispatchCompute(WIN_WIDTH / 10, WIN_HEIGHT / 10, 1);
+        c.glMemoryBarrier(c.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
         std.mem.swap(@TypeOf(input_unit), &input_unit, &output_unit);
+        // }
 
         c.glfwPollEvents();
         c.glfwSwapBuffers(window);
