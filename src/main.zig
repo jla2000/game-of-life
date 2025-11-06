@@ -5,10 +5,10 @@ const c = @cImport({
     @cInclude("GLFW/glfw3.h");
 });
 
-const WIN_WIDTH = 1280;
-const WIN_HEIGHT = 720;
+const WIN_WIDTH = 1920;
+const WIN_HEIGHT = 1080;
 
-const GRID_SCALE = 2;
+const GRID_SCALE = 4;
 const GRID_WIDTH = WIN_WIDTH / GRID_SCALE;
 const GRID_HEIGHT = WIN_HEIGHT / GRID_SCALE;
 
@@ -125,12 +125,16 @@ pub fn main() !void {
     var input_unit: c.GLint = 0;
     var output_unit: c.GLint = 1;
 
+    var input_texture: c.GLuint = texture0;
+    var output_texture: c.GLuint = texture1;
+
     var running = true;
     var pressed = false;
 
     while (c.glfwWindowShouldClose(window) == 0) {
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
+        c.glMemoryBarrier(c.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | c.GL_TEXTURE_FETCH_BARRIER_BIT);
         c.glUseProgram(render_program);
         c.glUniform1i(c.glGetUniformLocation(render_program, "render_texture"), input_unit);
         c.glDrawArrays(c.GL_TRIANGLE_STRIP, 0, 4);
@@ -140,9 +144,9 @@ pub fn main() !void {
             c.glUniform1i(input_data, input_unit);
             c.glUniform1i(output_data, output_unit);
             c.glDispatchCompute(WIN_WIDTH / 10, WIN_HEIGHT / 10, 1);
-            c.glMemoryBarrier(c.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | c.GL_TEXTURE_FETCH_BARRIER_BIT);
 
             std.mem.swap(@TypeOf(input_unit), &input_unit, &output_unit);
+            std.mem.swap(@TypeOf(input_texture), &input_texture, &output_texture);
         }
 
         c.glfwPollEvents();
@@ -164,7 +168,8 @@ pub fn main() !void {
         if (c.glfwGetMouseButton(window, c.GLFW_MOUSE_BUTTON_1) == c.GLFW_PRESS) {
             var temp_buf: [GRID_WIDTH * GRID_HEIGHT]u8 = undefined;
 
-            c.glBindTexture(c.GL_TEXTURE_2D, if (input_unit == 0) texture0 else texture1);
+            c.glMemoryBarrier(c.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | c.GL_TEXTURE_FETCH_BARRIER_BIT);
+            c.glBindTexture(c.GL_TEXTURE_2D, input_texture);
             c.glGetTexImage(c.GL_TEXTURE_2D, 0, c.GL_RED, c.GL_UNSIGNED_BYTE, &temp_buf);
 
             var x: f64 = 0.0;

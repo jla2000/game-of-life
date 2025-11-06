@@ -5,8 +5,13 @@ layout(local_size_x = 10, local_size_y = 10, local_size_z = 1) in;
 layout(r8, binding = 0) uniform image2D input_data;
 layout(r8, binding = 1) uniform image2D output_data;
 
-float get_cell(uint x, uint y) {
-  return imageLoad(input_data, ivec2(x, y)).r;
+float get_cell(int x, int y) {
+  ivec2 borders = imageSize(input_data);
+  if (x > 0 && y > 0 && x < borders.x && y < borders.y) {
+    return imageLoad(input_data, ivec2(x, y)).r;
+  } else {
+    return 0.0;
+  }
 }
 
 void main() {
